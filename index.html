@@ -176,6 +176,29 @@
             display: block;
         }
 
+        .sync-status {
+            margin-bottom: 18px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .sync-status[data-tone="ok"] {
+            border-color: rgba(31, 157, 91, 0.35);
+            background: rgba(232, 250, 239, 0.82);
+            color: #136c3f;
+        }
+
+        .sync-status[data-tone="warn"] {
+            border-color: #f2c56b;
+            background: #fff8e8;
+            color: #694100;
+        }
+
         .panel {
             border: 1px solid rgba(215, 221, 232, 0.9);
             border-radius: var(--radius);
@@ -413,9 +436,13 @@
             Se intentó abrir Google para activar el permiso de ventanas emergentes. Si tu navegador lo bloqueó, permite los pop-ups de este archivo y vuelve a abrirlo.
         </section>
 
+        <section class="sync-status" id="syncStatus" data-tone="neutral">
+            Cargando configuración...
+        </section>
+
         <section class="general panel" id="generalPanel">
             <h2>General</h2>
-            <p>Los cambios del editor se guardan en este navegador. Cada botón abre su enlace en una pestaña nueva; las casillas sirven para lanzar varias a la vez.</p>
+            <p>Los cambios del editor se guardan en servidor y también en este navegador como respaldo. Cada botón abre su enlace en una pestaña nueva; las casillas sirven para lanzar varias a la vez.</p>
         </section>
 
         <section class="launcher panel">
@@ -442,6 +469,7 @@
     <script>
         const STORAGE_KEY = "leoLauncherTabs.v2";
         const POPUP_CHECK_KEY = "leoLauncherPopupCheckDone";
+        const REMOTE_STORAGE_URL = "https://jsonblob.com/api/jsonBlob/019ea465-3b87-7db9-afb3-ee9a66986686";
         const defaultLinks = [
             {
                 name: "Pick Workforce",
@@ -498,12 +526,27 @@
         const resetBtn = document.getElementById("resetBtn");
         const generalPanel = document.getElementById("generalPanel");
         const popupNotice = document.getElementById("popupNotice");
+        const syncStatus = document.getElementById("syncStatus");
+
+        function setSyncStatus(message, tone = "neutral") {
+            syncStatus.textContent = message;
+            syncStatus.dataset.tone = tone;
+        }
+
+        function normalizeLinks(links) {
+            return links
+                .map((link) => ({
+                    name: String(link.name || "").trim() || "Sin nombre",
+                    url: normalizeUrl(String(link.url || ""))
+                }))
+                .filter((link) => link.url);
+        }
 
         function loadLinks() {
             try {
                 const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
                 if (Array.isArray(saved) && saved.length) {
-                    return saved;
+                    return normalizeLinks(saved);
                 }
             } catch (error) {
                 console.warn("No se pudieron cargar los botones guardados.", error);
@@ -514,6 +557,58 @@
 
         function saveLinks() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state.links));
+        }
+
+        async function loadRemoteLinks() {
+            try {
+                setSyncStatus("Sincronizando con servidor...", "neutral");
+                const response = await fetch(REMOTE_STORAGE_URL, { cache: "no-store" });
+                if (!response.ok) {
+                    throw new Error("Servidor respondió " + response.status);
+                }
+
+                const data = await response.json();
+                const remoteLinks = Array.isArray(data.links) ? data.links : data;
+                if (!Array.isArray(remoteLinks) || !remoteLinks.length) {
+                    throw new Error("Configuración remota vacía");
+                }
+
+                state.links = normalizeLinks(remoteLinks);
+                state.selected.clear();
+                saveLinks();
+                renderLauncher();
+                setSyncStatus("Configuración cargada desde servidor.", "ok");
+            } catch (error) {
+                console.warn("No se pudo cargar la configuración remota.", error);
+                setSyncStatus("Servidor no disponible; usando respaldo local de este navegador.", "warn");
+            }
+        }
+
+        async function saveRemoteLinks() {
+            try {
+                setSyncStatus("Guardando en servidor...", "neutral");
+                const response = await fetch(REMOTE_STORAGE_URL, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        links: state.links,
+                        updatedAt: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Servidor respondió " + response.status);
+                }
+
+                setSyncStatus("Cambios guardados en servidor.", "ok");
+                return true;
+            } catch (error) {
+                console.warn("No se pudieron guardar los cambios en servidor.", error);
+                setSyncStatus("No se pudo guardar en servidor; quedó guardado solo en este navegador.", "warn");
+                return false;
+            }
         }
 
         function normalizeUrl(url) {
@@ -651,11 +746,11 @@
         }
 
         function requestPopupPermission() {
-            if (sessionStorage.getItem(POPUP_CHECK_KEY) === "true") {
+            if (localStorage.getItem(POPUP_CHECK_KEY) === "true") {
                 return;
             }
 
-            sessionStorage.setItem(POPUP_CHECK_KEY, "true");
+            localStorage.setItem(POPUP_CHECK_KEY, "true");
 
             let testTab = null;
 
@@ -738,30 +833,28 @@
             }
         });
 
-        saveBtn.addEventListener("click", () => {
-            state.links = state.links
-                .map((link) => ({
-                    name: link.name.trim() || "Sin nombre",
-                    url: normalizeUrl(link.url)
-                }))
-                .filter((link) => link.url);
+        saveBtn.addEventListener("click", async () => {
+            state.links = normalizeLinks(state.links);
 
             state.selected.clear();
             saveLinks();
             renderEditor();
             renderLauncher();
             exitEditor();
+            await saveRemoteLinks();
         });
 
-        resetBtn.addEventListener("click", () => {
+        resetBtn.addEventListener("click", async () => {
             state.links = defaultLinks.map((link) => ({ ...link }));
             state.selected.clear();
             saveLinks();
             renderEditor();
             renderLauncher();
+            await saveRemoteLinks();
         });
 
         renderLauncher();
+        loadRemoteLinks();
         requestPopupPermission();
     </script>
 </body>
