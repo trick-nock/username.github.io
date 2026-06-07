@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lanzador de Pestañas Leo</title>
+    <style>
+        :root {
+            --bg: #eef2f7;
+            --panel: rgba(255, 255, 255, 0.82);
+            --panel-strong: #ffffff;
+            --text: #1b2430;
+            --muted: #667085;
+            --line: #d7dde8;
+            --accent: #ff9900;
+            --accent-dark: #c87500;
+            --accent-soft: #fff0d7;
+            --success: #1f9d5b;
+            --shadow: 0 18px 45px rgba(24, 33, 54, 0.14);
+            --radius: 22px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 18% 16%, rgba(255, 153, 0, 0.16), transparent 30%),
+                linear-gradient(135deg, #eef2f7 0%, #f8fafc 58%, #e6edf8 100%);
+        }
+
+        .app {
+            width: min(1100px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 28px 0 44px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 26px;
+        }
+
+        .brand {
+            min-width: 0;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: clamp(26px, 4vw, 42px);
+            line-height: 1.05;
+            letter-spacing: 0;
+        }
+
+        .brand p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            position: relative;
+            flex-wrap: wrap;
+        }
+
+        .menu-wrap {
+            position: relative;
+        }
+
+        .icon-btn,
+        .secondary-btn,
+        .primary-btn {
+            min-height: 42px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 0 16px;
+            background: var(--panel-strong);
+            color: var(--text);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+            transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+        }
+
+        .icon-btn {
+            width: 46px;
+            padding: 0;
+            display: grid;
+            place-items: center;
+            font-size: 20px;
+        }
+
+        .primary-btn {
+            border-color: transparent;
+            background: var(--accent);
+            color: #111827;
+        }
+
+        .secondary-btn.is-hidden {
+            display: none;
+        }
+
+        .icon-btn:hover,
+        .secondary-btn:hover,
+        .primary-btn:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 153, 0, 0.65);
+            box-shadow: 0 12px 28px rgba(16, 24, 40, 0.12);
+        }
+
+        .menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 220px;
+            padding: 8px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel-strong);
+            box-shadow: var(--shadow);
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+            transition: opacity 160ms ease, transform 160ms ease;
+            z-index: 20;
+        }
+
+        .menu.is-open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .menu button {
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            padding: 12px 13px;
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+            font: inherit;
+            font-weight: 650;
+            cursor: pointer;
+        }
+
+        .menu button:hover {
+            background: var(--accent-soft);
+        }
+
+        .notice {
+            display: none;
+            margin-bottom: 18px;
+            border: 1px solid #f2c56b;
+            border-radius: 16px;
+            padding: 14px 16px;
+            background: #fff8e8;
+            color: #694100;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .notice.is-visible {
+            display: block;
+        }
+
+        .panel {
+            border: 1px solid rgba(215, 221, 232, 0.9);
+            border-radius: var(--radius);
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+            padding: clamp(18px, 3vw, 28px);
+        }
+
+        .launcher-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .launcher-head h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .selected-count {
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .pill-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+
+        .pill {
+            display: grid;
+            grid-template-columns: 52px minmax(0, 1fr);
+            min-height: 58px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            overflow: hidden;
+            background: var(--panel-strong);
+            box-shadow: 0 10px 24px rgba(16, 24, 40, 0.08);
+            transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+        }
+
+        .pill:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 153, 0, 0.7);
+            box-shadow: 0 16px 30px rgba(16, 24, 40, 0.13);
+        }
+
+        .check-side {
+            display: grid;
+            place-items: center;
+            border-right: 1px solid var(--line);
+            background: #f8fafc;
+        }
+
+        .check-side input {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .launch-btn {
+            min-width: 0;
+            border: 0;
+            padding: 0 18px;
+            background: transparent;
+            color: var(--text);
+            font: inherit;
+            font-size: 15px;
+            font-weight: 800;
+            text-align: left;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pill.is-selected {
+            border-color: var(--accent);
+            box-shadow: 0 16px 30px rgba(255, 153, 0, 0.18);
+        }
+
+        .pill.is-selected .check-side {
+            background: var(--accent-soft);
+        }
+
+        .editor {
+            display: none;
+            margin-top: 18px;
+        }
+
+        body.is-editor .editor {
+            display: block;
+        }
+
+        body.is-editor .launcher {
+            display: none;
+        }
+
+        .editor-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .editor-head h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .editor-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .edit-row {
+            display: grid;
+            grid-template-columns: minmax(140px, 0.7fr) minmax(220px, 1.3fr) auto;
+            gap: 10px;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: var(--panel-strong);
+        }
+
+        .edit-row input {
+            width: 100%;
+            min-height: 42px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 0 14px;
+            color: var(--text);
+            font: inherit;
+            outline: none;
+        }
+
+        .edit-row input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.16);
+        }
+
+        .delete-btn {
+            width: 42px;
+            height: 42px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: #fff5f5;
+            color: #b42318;
+            font: inherit;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .footer-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .general {
+            display: none;
+            margin-bottom: 18px;
+        }
+
+        .general.is-visible {
+            display: block;
+        }
+
+        .general h2 {
+            margin: 0 0 8px;
+            font-size: 18px;
+        }
+
+        .general p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        @media (max-width: 700px) {
+            .topbar,
+            .launcher-head,
+            .editor-head {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .actions {
+                justify-content: flex-start;
+            }
+
+            .edit-row {
+                grid-template-columns: 1fr;
+            }
+
+            .delete-btn {
+                justify-self: end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="app">
+        <header class="topbar">
+            <div class="brand">
+                <h1>Lanzador de Pestañas Leo</h1>
+                <p>Selecciona varias o abre una sola con un clic.</p>
+            </div>
+
+            <div class="actions">
+                <div class="menu-wrap">
+                    <button class="icon-btn" id="settingsBtn" type="button" title="Ajustes" aria-label="Ajustes">⚙</button>
+                    <nav class="menu" id="settingsMenu" aria-label="Menu de ajustes">
+                        <button type="button" data-action="general">General</button>
+                        <button type="button" data-action="user">Agregar usuario</button>
+                        <button type="button" data-action="edit">Editar</button>
+                    </nav>
+                </div>
+                <button class="secondary-btn is-hidden" id="exitEditorBtn" type="button">Salir del editor</button>
+                <button class="primary-btn" id="openSelectedBtn" type="button">Abrir seleccionadas</button>
+            </div>
+        </header>
+
+        <section class="notice" id="popupNotice">
+            Se intentó abrir Google para activar el permiso de ventanas emergentes. Si tu navegador lo bloqueó, permite los pop-ups de este archivo y vuelve a abrirlo.
+        </section>
+
+        <section class="general panel" id="generalPanel">
+            <h2>General</h2>
+            <p>Los cambios del editor se guardan en este navegador. Cada botón abre su enlace en una pestaña nueva; las casillas sirven para lanzar varias a la vez.</p>
+        </section>
+
+        <section class="launcher panel">
+            <div class="launcher-head">
+                <h2>Botones rápidos</h2>
+                <span class="selected-count" id="selectedCount">0 seleccionadas</span>
+            </div>
+            <div class="pill-grid" id="pillGrid"></div>
+        </section>
+
+        <section class="editor panel" id="editorPanel">
+            <div class="editor-head">
+                <h2>Editor de botones</h2>
+                <button class="secondary-btn" id="addBtn" type="button">Agregar pastilla</button>
+            </div>
+            <div class="editor-list" id="editorList"></div>
+            <div class="footer-actions">
+                <button class="secondary-btn" id="resetBtn" type="button">Restaurar</button>
+                <button class="primary-btn" id="saveBtn" type="button">Guardar cambios</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const STORAGE_KEY = "leoLauncherTabs.v2";
+        const POPUP_CHECK_KEY = "leoLauncherPopupCheckDone";
+        const defaultLinks = [
+            {
+                name: "Pick Workforce",
+                url: "https://picking-console.na.picking.aft.a2z.com/fc/MTY3/pick-workforce"
+            },
+            {
+                name: "Eligibility",
+                url: "https://fc-eligibility-website-iad.aka.amazon.com/#/cluster-eligibilities/MTY3"
+            },
+            {
+                name: "FC Menu",
+                url: "https://fcmenu-iad-regionalized.corp.amazon.com/MTY3"
+            },
+            {
+                name: "Spotify",
+                url: "https://open.spotify.com/collection/tracks"
+            },
+            {
+                name: "Rodeo Process Path",
+                url: "https://rodeo-iad.amazon.com/MTY3/ExSD?yAxis=PROCESS_PATH&zAxis=WORK_POOL&shipmentTypes=CUSTOMER_SHIPMENTS&exSDRange.quickRange=NEXT_3_DAYS&exSDRange.dailyStart=00%3A00&exSDRange.dailyEnd=00%3A00&giftOption=ALL&fulfillmentServiceClass=ALL&fracs=ALL&isEulerExSDMiss=ALL&isEulerPromiseMiss=ALL&isEulerUpgraded=ALL&isReactiveTransfer=ALL&workPool=PredictedCharge&workPool=PlannedShipment&_workPool=on&workPool=ReadyToPick&workPool=ReadyToPickHardCapped&workPool=ReadyToPickUnconstrained&workPool=PickingNotYetPicked&workPool=PickingNotYetPickedPrioritized&workPool=PickingNotYetPickedNotPrioritized&workPool=PickingNotYetPickedHardCapped&workPool=CrossdockNotYetPicked&_workPool=on&workPool=PickingPicked&workPool=PickingPickedInProgress&workPool=PickingPickedInTransit&workPool=PickingPickedRouting&workPool=PickingPickedAtDestination&workPool=Inducted&workPool=RebinBuffered&workPool=Sorted&workPool=GiftWrap&workPool=Packing&workPool=Scanned&workPool=ProblemSolving&workPool=ProcessPartial&workPool=SoftwareException&workPool=Crossdock&workPool=PreSort&workPool=TransshipSorted&workPool=Palletized&workPool=PalletizedStaged&_workPool=on&workPool=ManifestPending&workPool=ManifestPendingVerification&workPool=Manifested&workPool=Slammed&workPool=ReceivedBySorter&workPool=InterceptProblemSolve&workPool=STaRSSlammed&workPool=STaRSReceivedBySorter&workPool=STaRSDiverted&workPool=STaRSStacked&workPool=STaRSStaged&workPool=STaRSLoaded&workPool=Diverted&workPool=Stacked&workPool=Staged&workPool=Loaded&workPool=TransshipManifested&_workPool=on&processPath=&minPickPriority=MIN_PRIORITY&shipMethod=&shipOption=&sortCode=&fnSku="
+            },
+            {
+                name: "Rodeo Pick Priority",
+                url: "https://rodeo-iad.amazon.com/MTY3/ExSD?yAxis=WORK_POOL&zAxis=PICK_PRIORITY&shipmentTypes=CUSTOMER_SHIPMENTS&exSDRange.quickRange=NEXT_3_DAYS&exSDRange.dailyStart=00%3A00&exSDRange.dailyEnd=00%3A00&giftOption=ALL&fulfillmentServiceClass=ALL&fracs=ALL&isEulerExSDMiss=ALL&isEulerPromiseMiss=ALL&isEulerUpgraded=ALL&isReactiveTransfer=ALL&workPool=PredictedCharge&workPool=PlannedShipment&_workPool=on&workPool=ReadyToPick&workPool=ReadyToPickHardCapped&workPool=ReadyToPickUnconstrained&workPool=PickingNotYetPicked&workPool=PickingNotYetPickedPrioritized&workPool=PickingNotYetPickedNotPrioritized&workPool=PickingNotYetPickedHardCapped&workPool=CrossdockNotYetPicked&_workPool=on&workPool=PickingPicked&workPool=PickingPickedInProgress&workPool=PickingPickedInTransit&workPool=PickingPickedRouting&workPool=PickingPickedAtDestination&workPool=Inducted&workPool=RebinBuffered&workPool=Sorted&workPool=GiftWrap&workPool=Packing&workPool=Scanned&workPool=ProblemSolving&workPool=ProcessPartial&workPool=SoftwareException&workPool=Crossdock&workPool=PreSort&workPool=TransshipSorted&workPool=Palletized&workPool=PalletizedStaged&_workPool=on&workPool=ManifestPending&workPool=ManifestPendingVerification&workPool=Manifested&workPool=Slammed&workPool=ReceivedBySorter&workPool=InterceptProblemSolve&workPool=STaRSSlammed&workPool=STaRSReceivedBySorter&workPool=STaRSDiverted&workPool=STaRSStacked&workPool=STaRSStaged&workPool=STaRSLoaded&workPool=Diverted&workPool=Stacked&workPool=Staged&workPool=Loaded&workPool=TransshipManifested&_workPool=on&processPath=&minPickPriority=MIN_PRIORITY&shipMethod=&shipOption=&sortCode=&fnSku="
+            },
+            {
+                name: "QI Research",
+                url: "https://qi-fcresearch-na.corp.amazon.com/MTY3/results?s=B0BWL24QQR"
+            },
+            {
+                name: "Barcode",
+                url: "https://barcode.tec-it.com/en/?data=B012GJ87L6"
+            },
+            {
+                name: "Flow Sortation",
+                url: "https://flow-sortation-na.amazon.com/MTY3/?fcrAutoCapture=1#/buffer/current-status"
+            }
+        ];
+
+        const state = {
+            links: loadLinks(),
+            selected: new Set()
+        };
+
+        const pillGrid = document.getElementById("pillGrid");
+        const editorList = document.getElementById("editorList");
+        const selectedCount = document.getElementById("selectedCount");
+        const settingsBtn = document.getElementById("settingsBtn");
+        const settingsMenu = document.getElementById("settingsMenu");
+        const openSelectedBtn = document.getElementById("openSelectedBtn");
+        const exitEditorBtn = document.getElementById("exitEditorBtn");
+        const addBtn = document.getElementById("addBtn");
+        const saveBtn = document.getElementById("saveBtn");
+        const resetBtn = document.getElementById("resetBtn");
+        const generalPanel = document.getElementById("generalPanel");
+        const popupNotice = document.getElementById("popupNotice");
+
+        function loadLinks() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                if (Array.isArray(saved) && saved.length) {
+                    return saved;
+                }
+            } catch (error) {
+                console.warn("No se pudieron cargar los botones guardados.", error);
+            }
+
+            return defaultLinks;
+        }
+
+        function saveLinks() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.links));
+        }
+
+        function normalizeUrl(url) {
+            const trimmed = url.trim();
+            if (!trimmed) {
+                return "";
+            }
+
+            if (/^(https?:|file:|mailto:)/i.test(trimmed)) {
+                return trimmed;
+            }
+
+            return "https://" + trimmed;
+        }
+
+        function openUrl(url) {
+            const normalized = normalizeUrl(url);
+            if (!normalized) {
+                return;
+            }
+
+            window.open(normalized, "_blank", "noopener");
+        }
+
+        function updateSelectedCount() {
+            const total = state.selected.size;
+            selectedCount.textContent = total === 1 ? "1 seleccionada" : total + " seleccionadas";
+            if (total === 0) {
+                openSelectedBtn.textContent = "Abrir todas";
+            } else if (total === 1) {
+                openSelectedBtn.textContent = "Abrir 1 seleccionada";
+            } else {
+                openSelectedBtn.textContent = "Abrir " + total + " seleccionadas";
+            }
+        }
+
+        function renderLauncher() {
+            pillGrid.innerHTML = "";
+
+            state.links.forEach((link, index) => {
+                const pill = document.createElement("div");
+                pill.className = "pill";
+                if (state.selected.has(index)) {
+                    pill.classList.add("is-selected");
+                }
+
+                const checkSide = document.createElement("label");
+                checkSide.className = "check-side";
+                checkSide.title = "Seleccionar " + link.name;
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = state.selected.has(index);
+                checkbox.addEventListener("change", () => {
+                    if (checkbox.checked) {
+                        state.selected.add(index);
+                    } else {
+                        state.selected.delete(index);
+                    }
+                    renderLauncher();
+                });
+
+                const button = document.createElement("button");
+                button.className = "launch-btn";
+                button.type = "button";
+                button.textContent = link.name || "Sin nombre";
+                button.title = link.url;
+                button.addEventListener("click", () => openUrl(link.url));
+
+                checkSide.appendChild(checkbox);
+                pill.appendChild(checkSide);
+                pill.appendChild(button);
+                pillGrid.appendChild(pill);
+            });
+
+            updateSelectedCount();
+        }
+
+        function renderEditor() {
+            editorList.innerHTML = "";
+
+            state.links.forEach((link, index) => {
+                const row = document.createElement("div");
+                row.className = "edit-row";
+
+                const nameInput = document.createElement("input");
+                nameInput.type = "text";
+                nameInput.value = link.name;
+                nameInput.placeholder = "Nombre del botón";
+                nameInput.dataset.field = "name";
+                nameInput.dataset.index = index;
+
+                const urlInput = document.createElement("input");
+                urlInput.type = "url";
+                urlInput.value = link.url;
+                urlInput.placeholder = "https://ejemplo.com";
+                urlInput.dataset.field = "url";
+                urlInput.dataset.index = index;
+
+                const deleteButton = document.createElement("button");
+                deleteButton.className = "delete-btn";
+                deleteButton.type = "button";
+                deleteButton.textContent = "×";
+                deleteButton.title = "Eliminar";
+                deleteButton.addEventListener("click", () => {
+                    state.links.splice(index, 1);
+                    state.selected.clear();
+                    renderEditor();
+                    renderLauncher();
+                });
+
+                row.appendChild(nameInput);
+                row.appendChild(urlInput);
+                row.appendChild(deleteButton);
+                editorList.appendChild(row);
+            });
+        }
+
+        function enterEditor() {
+            document.body.classList.add("is-editor");
+            exitEditorBtn.classList.remove("is-hidden");
+            generalPanel.classList.remove("is-visible");
+            closeMenu();
+            renderEditor();
+        }
+
+        function exitEditor() {
+            document.body.classList.remove("is-editor");
+            exitEditorBtn.classList.add("is-hidden");
+            renderLauncher();
+        }
+
+        function closeMenu() {
+            settingsMenu.classList.remove("is-open");
+        }
+
+        function requestPopupPermission() {
+            if (sessionStorage.getItem(POPUP_CHECK_KEY) === "true") {
+                return;
+            }
+
+            sessionStorage.setItem(POPUP_CHECK_KEY, "true");
+
+            let testTab = null;
+
+            try {
+                testTab = window.open("https://www.google.com", "_blank");
+            } catch (error) {
+                testTab = null;
+            }
+
+            if (!testTab) {
+                popupNotice.classList.add("is-visible");
+                return;
+            }
+
+            setTimeout(() => {
+                try {
+                    if (!testTab.closed) {
+                        testTab.close();
+                    }
+                } catch (error) {
+                    console.warn("No se pudo cerrar la pestaña de permiso.", error);
+                }
+            }, 3000);
+        }
+
+        settingsBtn.addEventListener("click", () => {
+            settingsMenu.classList.toggle("is-open");
+        });
+
+        settingsMenu.addEventListener("click", (event) => {
+            const action = event.target.dataset.action;
+
+            if (action === "general") {
+                generalPanel.classList.toggle("is-visible");
+                closeMenu();
+            }
+
+            if (action === "user") {
+                closeMenu();
+            }
+
+            if (action === "edit") {
+                enterEditor();
+            }
+        });
+
+        document.addEventListener("click", (event) => {
+            if (!event.target.closest(".menu-wrap")) {
+                closeMenu();
+            }
+        });
+
+        openSelectedBtn.addEventListener("click", () => {
+            const indexes = Array.from(state.selected);
+            const targets = indexes.length ? indexes : state.links.map((_, index) => index);
+
+            targets.forEach((index) => {
+                openUrl(state.links[index].url);
+            });
+        });
+
+        exitEditorBtn.addEventListener("click", exitEditor);
+
+        addBtn.addEventListener("click", () => {
+            state.links.push({
+                name: "Nuevo botón",
+                url: "https://"
+            });
+            renderEditor();
+            renderLauncher();
+        });
+
+        editorList.addEventListener("input", (event) => {
+            const input = event.target;
+            const index = Number(input.dataset.index);
+            const field = input.dataset.field;
+
+            if (!Number.isNaN(index) && state.links[index] && field) {
+                state.links[index][field] = input.value;
+            }
+        });
+
+        saveBtn.addEventListener("click", () => {
+            state.links = state.links
+                .map((link) => ({
+                    name: link.name.trim() || "Sin nombre",
+                    url: normalizeUrl(link.url)
+                }))
+                .filter((link) => link.url);
+
+            state.selected.clear();
+            saveLinks();
+            renderEditor();
+            renderLauncher();
+            exitEditor();
+        });
+
+        resetBtn.addEventListener("click", () => {
+            state.links = defaultLinks.map((link) => ({ ...link }));
+            state.selected.clear();
+            saveLinks();
+            renderEditor();
+            renderLauncher();
+        });
+
+        renderLauncher();
+        requestPopupPermission();
+    </script>
+</body>
+</html>
