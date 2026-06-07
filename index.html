@@ -24,6 +24,11 @@
             box-sizing: border-box;
         }
 
+        html {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
         body {
             min-height: 100vh;
             margin: 0;
@@ -32,6 +37,7 @@
             background:
                 radial-gradient(circle at 18% 16%, rgba(255, 153, 0, 0.16), transparent 30%),
                 linear-gradient(135deg, #eef2f7 0%, #f8fafc 58%, #e6edf8 100%);
+            overflow-x: hidden;
         }
 
         .app {
@@ -121,10 +127,10 @@
         }
 
         .menu {
-            position: absolute;
-            top: calc(100% + 10px);
-            right: 0;
-            width: 220px;
+            position: fixed;
+            top: var(--menu-top, 90px);
+            left: var(--menu-left, 16px);
+            width: min(220px, calc(100vw - 32px));
             padding: 8px;
             border: 1px solid var(--line);
             border-radius: 16px;
@@ -134,7 +140,7 @@
             transform: translateY(-8px);
             pointer-events: none;
             transition: opacity 160ms ease, transform 160ms ease;
-            z-index: 20;
+            z-index: 60;
         }
 
         .menu.is-open {
@@ -200,6 +206,7 @@
         }
 
         .panel {
+            min-width: 0;
             border: 1px solid rgba(215, 221, 232, 0.9);
             border-radius: var(--radius);
             background: var(--panel);
@@ -236,6 +243,8 @@
         .pill {
             display: grid;
             grid-template-columns: 52px minmax(0, 1fr);
+            width: 100%;
+            min-width: 0;
             min-height: 58px;
             border: 1px solid var(--line);
             border-radius: 999px;
@@ -389,6 +398,17 @@
         }
 
         @media (max-width: 700px) {
+            .app {
+                width: 100%;
+                max-width: 100%;
+                padding: 20px 12px 32px;
+            }
+
+            .topbar {
+                gap: 16px;
+                margin-bottom: 18px;
+            }
+
             .topbar,
             .launcher-head,
             .editor-head {
@@ -398,6 +418,46 @@
 
             .actions {
                 justify-content: flex-start;
+                width: 100%;
+            }
+
+            .brand h1 {
+                font-size: 30px;
+            }
+
+            .brand p {
+                font-size: 14px;
+            }
+
+            .notice,
+            .sync-status {
+                width: 100%;
+                max-width: 100%;
+                margin-bottom: 14px;
+                padding: 12px 14px;
+                font-size: 13px;
+                line-height: 1.38;
+                overflow-wrap: break-word;
+            }
+
+            .panel {
+                border-radius: 20px;
+                padding: 16px;
+            }
+
+            .pill-grid {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 12px;
+            }
+
+            .pill {
+                grid-template-columns: 48px minmax(0, 1fr);
+                min-height: 54px;
+            }
+
+            .launch-btn {
+                padding: 0 14px;
+                font-size: 14px;
             }
 
             .edit-row {
@@ -469,7 +529,8 @@
     <script>
         const STORAGE_KEY = "leoLauncherTabs.v2";
         const POPUP_CHECK_KEY = "leoLauncherPopupCheckDone";
-        const REMOTE_STORAGE_URL = "https://jsonblob.com/api/jsonBlob/019ea465-3b87-7db9-afb3-ee9a66986686";
+        const REMOTE_STORAGE_DIRECT_URL = "https://jsonblob.com/api/jsonBlob/019ea465-3b87-7db9-afb3-ee9a66986686";
+        const REMOTE_STORAGE_URL = "https://corsproxy.io/?url=" + encodeURIComponent(REMOTE_STORAGE_DIRECT_URL);
         const defaultLinks = [
             {
                 name: "Pick Workforce",
@@ -745,6 +806,22 @@
             settingsMenu.classList.remove("is-open");
         }
 
+        function positionMenu() {
+            const margin = 12;
+            const buttonRect = settingsBtn.getBoundingClientRect();
+            const menuWidth = Math.min(220, window.innerWidth - margin * 2);
+            const preferredLeft = buttonRect.left;
+            const left = Math.min(
+                Math.max(preferredLeft, margin),
+                window.innerWidth - menuWidth - margin
+            );
+            const top = Math.min(buttonRect.bottom + 10, window.innerHeight - margin);
+
+            settingsMenu.style.setProperty("--menu-left", left + "px");
+            settingsMenu.style.setProperty("--menu-top", top + "px");
+            settingsMenu.style.width = menuWidth + "px";
+        }
+
         function requestPopupPermission() {
             if (localStorage.getItem(POPUP_CHECK_KEY) === "true") {
                 return;
@@ -777,7 +854,11 @@
         }
 
         settingsBtn.addEventListener("click", () => {
-            settingsMenu.classList.toggle("is-open");
+            const willOpen = !settingsMenu.classList.contains("is-open");
+            if (willOpen) {
+                positionMenu();
+            }
+            settingsMenu.classList.toggle("is-open", willOpen);
         });
 
         settingsMenu.addEventListener("click", (event) => {
@@ -800,6 +881,12 @@
         document.addEventListener("click", (event) => {
             if (!event.target.closest(".menu-wrap")) {
                 closeMenu();
+            }
+        });
+
+        window.addEventListener("resize", () => {
+            if (settingsMenu.classList.contains("is-open")) {
+                positionMenu();
             }
         });
 
